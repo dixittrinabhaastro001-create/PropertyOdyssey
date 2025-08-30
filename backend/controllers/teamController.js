@@ -1,8 +1,37 @@
+
 import Team from '../models/Team.js';
 import Entry from '../models/Entry.js';
 import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
+
+// Add or Deduct wallet balance for a team
+export const updateTeamWallet = async (req, res) => {
+    // Only Manager or Admin can update wallet
+    if (!['Manager', 'Admin'].includes(req.user.role)) {
+        return res.status(403).json({ message: 'Forbidden: Only managers or admins can update team wallets.' });
+    }
+    const { teamId, amount, isPercent, isDeduct } = req.body;
+    if (!teamId || typeof amount !== 'number') {
+        return res.status(400).json({ message: 'Missing teamId or amount.' });
+    }
+    try {
+        const team = await Team.findById(teamId);
+        if (!team) return res.status(404).json({ message: 'Team not found.' });
+        let finalAmount = amount;
+        if (isPercent) {
+            finalAmount = Math.round(team.walletBalance * (amount / 100));
+        }
+        if (isDeduct) {
+            finalAmount = -Math.abs(finalAmount);
+        }
+        team.walletBalance += finalAmount;
+        await team.save();
+        res.json({ message: `Wallet updated by ${finalAmount}.`, walletBalance: team.walletBalance });
+    } catch (err) {
+        res.status(500).json({ message: 'Error updating wallet.' });
+    }
+};
 
 export const getTeams = async (req, res) => {
     try {

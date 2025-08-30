@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
 // import { verificationData } from '../data/verificationData.js';
 import TeamLedgerTable from '../components/TeamLedgerTable';
-import { useAuth } from '../context/AuthContext';
+
 
 // --- Helper Components ---
 const formatCurrency = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -42,11 +43,7 @@ const VerificationRow = ({ property, selectedPropertyNo, onVerify, onSelect }) =
 
 // --- Main Page Component ---
 function VerificationSystem() {
-    // --- Bank Block State ---
-    const initialBankValue = 500000000;
-    const [bankValue, setBankValue] = useState(initialBankValue);
-    const [selectedBankTeamId, setSelectedBankTeamId] = useState(''); // Team selected for bank block
-    const [bankState, setBankState] = useState('neutral');
+    // --- Team Wallet Management State ---
 
     const { user, token } = useAuth();
     const [properties, setProperties] = useState([]);
@@ -218,40 +215,57 @@ function VerificationSystem() {
         }
     };
 
-    // --- Bank Block Logic ---
-    const handleBankToggle = async (newState) => {
-        const team = teams.find(t => t._id === selectedBankTeamId);
-        if (!team || !token) return;
-        let action = newState;
-        let confirmMsg = '';
-        let amount = 0;
-        if (newState === 'active') {
-            confirmMsg = `Activate bank for ${team.name}? This will add ${formatCurrency(bankValue)} to their wallet.`;
-            amount = bankValue;
-        } else if (newState === 'inactive') {
-            confirmMsg = `Deactivate bank for ${team.name}? This will subtract ${formatCurrency(bankValue)} from their wallet.`;
-            amount = -bankValue;
-        } else if (newState === 'neutral') {
-            confirmMsg = `Set bank to neutral for ${team.name}?`;
-            amount = 0;
-        }
-        if (!window.confirm(confirmMsg)) return;
+    // --- Team Wallet Add/Deduct Logic is handled in TeamWalletRow below ---
+// --- TeamWalletRow Component ---
+const TeamWalletRow = ({ team }) => {
+    const { token } = useAuth();
+    const [addValue, setAddValue] = useState('');
+    const [addIsPercent, setAddIsPercent] = useState(false);
+    const [deductValue, setDeductValue] = useState('');
+    const [deductIsPercent, setDeductIsPercent] = useState(false);
+    const [status, setStatus] = useState('');
+
+    const handleWalletUpdate = async (isAdd) => {
+        let value = isAdd ? addValue : deductValue;
+        let isPercent = isAdd ? addIsPercent : deductIsPercent;
+        if (!value || isNaN(value)) return;
+        let amount = parseFloat(value);
+        // Always send positive amount, but for deduct, backend will subtract
+        setStatus('Processing...');
         try {
-            if (amount !== 0) {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/bank`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ teamId: team._id, amount })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'Bank operation failed.');
-            }
-            setBankState(action);
-            fetchTeams();
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/update-wallet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ teamId: team._id, amount, isPercent, isDeduct: !isAdd })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to update wallet');
+            setStatus(isAdd ? 'Added!' : 'Deducted!');
+            setAddValue('');
+            setDeductValue('');
         } catch (err) {
-            alert(`Bank error: ${err.message}`);
+            setStatus('Error: ' + err.message);
         }
     };
+
+    return (
+        <tr>
+            <td className="p-2">{team.name}</td>
+            <td className="p-2">{team.walletBalance.toLocaleString()}</td>
+            <td className="p-2">
+                <input type="number" value={addValue} onChange={e => setAddValue(e.target.value)} className="border rounded p-1 w-20" placeholder="Amount" />
+                <label className="ml-2 text-xs"><input type="checkbox" checked={addIsPercent} onChange={e => setAddIsPercent(e.target.checked)} /> %</label>
+                <button onClick={() => handleWalletUpdate(true)} className="ml-2 bg-green-500 text-white px-2 py-1 rounded">Add</button>
+            </td>
+            <td className="p-2">
+                <input type="number" value={deductValue} onChange={e => setDeductValue(e.target.value)} className="border rounded p-1 w-20" placeholder="Amount" />
+                <label className="ml-2 text-xs"><input type="checkbox" checked={deductIsPercent} onChange={e => setDeductIsPercent(e.target.checked)} /> %</label>
+                <button onClick={() => handleWalletUpdate(false)} className="ml-2 bg-red-500 text-white px-2 py-1 rounded">Deduct</button>
+            </td>
+            <td className="p-2">{status}</td>
+        </tr>
+    );
+};
 
     const triggerDisaster = async (disasterType, deductionAmount) => {
         const formattedAmount = formatCurrency(deductionAmount);
@@ -549,49 +563,29 @@ function VerificationSystem() {
 
             <div className="my-12 border-t border-gray-300"></div>
 
-            {/* Bank Block */}
-            <div className="bg-blue-50 p-6 rounded-lg shadow-md mb-12">
-                <h2 className="text-2xl font-bold text-blue-800 mb-4">Bank Block 🏦</h2>
-                <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <div className="flex-1">
-                        <p className="text-lg font-semibold">Current Bank Value: <span className="text-blue-700">{formatCurrency(bankValue)}</span></p>
-                        <p className="text-sm text-gray-600">Bank value increases by 2% after each round.</p>
-                    </div>
-                    <div className="flex-1 flex gap-2 items-center">
-                        <select
-                            className="px-4 py-2 rounded-lg border border-gray-300"
-                            value={selectedBankTeamId}
-                            onChange={e => setSelectedBankTeamId(e.target.value)}
-                        >
-                            <option value="">Select Team</option>
-                            {teams.map(team => (
-                                <option key={team._id} value={team._id}>
-                                    {team.name}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            className={`px-6 py-3 rounded-lg font-bold text-white ${bankState === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
-                            onClick={() => handleBankToggle(bankState === 'active' ? 'inactive' : 'active')}
-                            disabled={!selectedBankTeamId}
-                        >
-                            {bankState === 'active' ? 'Deactivate Bank' : 'Activate Bank'}
-                        </button>
-                        <button
-                            className={`px-6 py-3 rounded-lg font-bold text-white bg-gray-500 hover:bg-gray-700`}
-                            onClick={() => handleBankToggle('neutral')}
-                            disabled={!selectedBankTeamId}
-                        >
-                            Neutral
-                        </button>
-                        {selectedBankTeamId && (
-                            <p className="mt-2 text-sm text-gray-700">Team: <span className="font-bold">{teams.find(t => t._id === selectedBankTeamId)?.name}</span></p>
-                        )}
-                    </div>
-                </div>
-            </div>
+                        {/* Team Wallet Controls */}
+                        <div className="bg-blue-50 p-6 rounded-lg shadow-md mb-12">
+                                <h2 className="text-2xl font-bold text-blue-800 mb-4">Team Wallet Management</h2>
+                                <table className="w-full border">
+                                    <thead>
+                                        <tr className="bg-gray-100">
+                                            <th className="p-2">Team Name</th>
+                                            <th className="p-2">Wallet Balance</th>
+                                            <th className="p-2">Add</th>
+                                            <th className="p-2">Deduct</th>
+                                            <th className="p-2">Status</th>
+                                        </tr>
+                                    </thead>
+                                                            <tbody>
+                                                                {teams.map(team => (
+                                                                    <TeamWalletRow key={team._id} team={team} />
+                                                                ))}
+                                                            </tbody>
+                                </table>
+                        </div>
         </main>
     );
 }
 
 export default VerificationSystem;
+
