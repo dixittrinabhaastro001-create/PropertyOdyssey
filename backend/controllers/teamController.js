@@ -121,7 +121,7 @@ export const endRound = async (req, res) => {
         const teamsInTable = await Team.find({ tableId: tableAccess });
         await Promise.all(teamsInTable.map(async (team) => {
             const entries = await Entry.find({ team: team._id });
-            const totalRentIncome = entries.reduce((sum, entry) => sum + entry.annualRent, 0);
+            const totalRentIncome = entries.reduce((sum, entry) => sum + (entry.annualRent * 5), 0);
             if (totalRentIncome > 0) {
                 await Team.findByIdAndUpdate(team._id, { $inc: { walletBalance: totalRentIncome } });
             }

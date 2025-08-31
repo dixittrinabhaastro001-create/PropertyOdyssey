@@ -206,7 +206,7 @@ function VerificationSystem() {
                  throw new Error(data.message || "Server failed to process round end.");
             }
             // Increase bank value by 2% after each round
-            setBankValue(prev => Math.round(prev * 1.02));
+            
             alert("Round ended successfully! Wallets have been updated with rental income.");
             fetchTeams();
         } catch (err) {
