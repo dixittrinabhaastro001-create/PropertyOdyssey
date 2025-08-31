@@ -49,6 +49,7 @@ export const AuthProvider = ({ children }) => {
                 if (userData.role === 'Manager') navigate('/verify');
                 else if (userData.role === 'Broker') navigate('/dashboard');
                 else if (userData.role === 'Participant') navigate('/participant-dashboard');
+                else if (userData.role === 'Admin') navigate('/admin');
             } else {
                 throw new Error(data.message || 'Login failed. Please check your credentials.');
             }

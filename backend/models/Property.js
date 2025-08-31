@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const propertySchema = new mongoose.Schema({
+	originalGrandTotal: { type: Number },
 	propertyNo: { type: Number, required: true, unique: true },
 	name: { type: String, required: true },
 	status: { type: String },

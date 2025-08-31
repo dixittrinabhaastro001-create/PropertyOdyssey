@@ -41,6 +41,10 @@ function LoginPage() {
                                     <input type="radio" name="role" value="Manager" checked={role === 'Manager'} onChange={() => setRole('Manager')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
                                     <span className="ml-3 text-gray-700">Manager</span>
                                 </label>
+                                <label className={`flex items-center p-3 border rounded-lg flex-1 cursor-pointer transition-all ${role === 'Admin' ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-300'}`}>
+                                    <input type="radio" name="role" value="Admin" checked={role === 'Admin'} onChange={() => setRole('Admin')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                    <span className="ml-3 text-gray-700">Admin</span>
+                                </label>
                             </div>
                         </div>
 

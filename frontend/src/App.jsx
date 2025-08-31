@@ -11,6 +11,7 @@ import BrokerDashboard from './pages/BrokerDashboard';
 import VerificationSystem from './pages/VerificationSystem';
 import PropertyListPage from './pages/PropertyListPage';
 import ParticipantDashboard from './pages/ParticipantDashboard';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   return (
@@ -36,6 +37,11 @@ function App() {
         {/* Participant-only Route */}
         <Route element={<ProtectedRoute allowedRoles={['Participant']} />}>
           <Route path="/participant-dashboard" element={<ParticipantDashboard />} />
+        </Route>
+
+        {/* Admin-only Route */}
+        <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+          <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>
       

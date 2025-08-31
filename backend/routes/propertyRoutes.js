@@ -1,6 +1,7 @@
 import express from 'express';
 import Property from '../models/Property.js';
 import verifyToken from '../middleware/verifyToken.js';
+import { bulkUpdateProperties } from '../controllers/propertyController.js';
 const router = express.Router();
 
 // Get all properties
@@ -23,5 +24,8 @@ router.get('/:propertyNo', async (req, res) => {
     res.status(500).json({ message: 'Error fetching property.' });
   }
 });
+
+// Bulk-update route for admin property price changes
+router.post('/bulk-update', verifyToken, bulkUpdateProperties);
 
 export default router;
