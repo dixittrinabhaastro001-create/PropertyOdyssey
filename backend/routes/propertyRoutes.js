@@ -1,8 +1,10 @@
 import express from 'express';
 import Property from '../models/Property.js';
 import verifyToken from '../middleware/verifyToken.js';
-import { bulkUpdateProperties } from '../controllers/propertyController.js';
+import { bulkUpdateProperties, removeTeamOwnerFromProperty } from '../controllers/propertyController.js';
 const router = express.Router();
+// Remove a team from the owners array of a property
+router.post('/:propertyNo/remove-owner', verifyToken, removeTeamOwnerFromProperty);
 
 // Get all properties
 router.get('/', async (req, res) => {

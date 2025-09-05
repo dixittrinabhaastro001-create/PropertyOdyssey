@@ -112,23 +112,59 @@ export const deleteTeam = async (req, res) => {
     }
 };
 
-export const endRound = async (req, res) => {
-    if (req.user.role !== 'Manager') {
-        return res.status(403).json({ message: 'Forbidden: Only managers can end the round.' });
+
+
+// Admin-only: End round for all tables
+export const endAllRounds = async (req, res) => {
+    if (req.user.role !== 'Admin') {
+        return res.status(403).json({ message: 'Forbidden: Only admins can end all rounds.' });
     }
-    const { tableAccess } = req.user;
     try {
-        const teamsInTable = await Team.find({ tableId: tableAccess });
-        await Promise.all(teamsInTable.map(async (team) => {
-            const entries = await Entry.find({ team: team._id });
-            const totalRentIncome = entries.reduce((sum, entry) => sum + (entry.annualRent * 5), 0);
-            if (totalRentIncome > 0) {
-                await Team.findByIdAndUpdate(team._id, { $inc: { walletBalance: totalRentIncome } });
+        const Property = (await import('../models/Property.js')).default;
+        const Team = (await import('../models/Team.js')).default;
+
+        // 1. Increase grandTotal of all properties by 10%
+        await Property.updateMany({}, [
+            { $set: { grandTotal: { $multiply: ["$grandTotal", 1.1] } } }
+        ]);
+
+        // 2. For each property, increase annualRent and totalCost for each owner by 10%
+        const allProperties = await Property.find({});
+        for (const property of allProperties) {
+            let updatedOwners = property.owners.map(owner => {
+                let updatedOwner = { ...owner._doc };
+                if (typeof updatedOwner.annualRent === 'number') {
+                    updatedOwner.annualRent = Math.round(updatedOwner.annualRent * 1.1);
+                }
+                if (typeof updatedOwner.totalCost === 'number') {
+                    updatedOwner.totalCost = Math.round(updatedOwner.totalCost * 1.1);
+                }
+                return updatedOwner;
+            });
+            property.owners = updatedOwners;
+            await property.save();
+        }
+
+        // 3. For each team, sum up updated annualRent from all properties they own (from owners array)
+        const teams = await Team.find({});
+        for (const team of teams) {
+            // Find all properties where this team is an owner
+            const properties = await Property.find({ 'owners.team': team._id });
+            let totalAnnualRent = 0;
+            for (const property of properties) {
+                // Find the owner's object for this team
+                const ownerObj = property.owners.find(o => o.team.toString() === team._id.toString());
+                if (ownerObj && typeof ownerObj.annualRent === 'number') {
+                    totalAnnualRent += ownerObj.annualRent;
+                }
             }
-        }));
-        res.status(200).json({ message: `Round ended for ${tableAccess}. Rental income added to wallets.` });
+            if (totalAnnualRent > 0) {
+                await Team.findByIdAndUpdate(team._id, { $inc: { walletBalance: totalAnnualRent } });
+            }
+        }
+        res.status(200).json({ message: 'All rounds ended. All property grandTotals, annualRents, and totalCosts increased by 10%. All teams received their annual rents.' });
     } catch (err) {
-        console.error("Round End Error:", err);
-        res.status(500).json({ message: "Error processing round end." });
+        console.error("End All Rounds Error:", err);
+        res.status(500).json({ message: "Error processing end of all rounds." });
     }
 };

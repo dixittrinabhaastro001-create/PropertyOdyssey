@@ -12,7 +12,7 @@ const entrySchema = new mongoose.Schema({
     status: String,
     grandTotal: Number,
     brokeragePercent: Number,
-    finalTotal: Number,
+    totalCost: Number,
     hazardTypes: [{ type: String }]
 }, { timestamps: true });
 

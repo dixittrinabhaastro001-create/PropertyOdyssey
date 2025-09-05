@@ -13,6 +13,7 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
     const [selectedProperty, setSelectedProperty] = useState(null);
     const [brokeragePercent, setBrokeragePercent] = useState('');
     const [settings, setSettings] = useState(null);
+    const [rentPercent, setRentPercent] = useState('');
     const [propertyData, setPropertyData] = useState([]);
     useEffect(() => {
         async function fetchProperties() {
@@ -50,9 +51,12 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
             setSearchResults([]);
             return;
         }
-        const matches = propertyData.filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const term = searchTerm.toLowerCase();
+        const matches = propertyData.filter(p => {
+            const nameMatch = p.name && p.name.toLowerCase().includes(term);
+            const propertyNoMatch = p.propertyNo && p.propertyNo.toString().includes(term);
+            return nameMatch || propertyNoMatch;
+        });
         setSearchResults(matches);
     }, [searchTerm, propertyData]);
 
@@ -63,20 +67,23 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
         setBrokeragePercent('');
     };
 
-    const calculateFinalPrice = () => {
+    const calculateTotalCost = () => {
         if (!selectedProperty || !settings) return 0;
         const grandTotal = selectedProperty.grandTotal;
         const brokerage = grandTotal * ((parseFloat(brokeragePercent) || 0) / 100);
+        const base = grandTotal + brokerage;
         const stampDutyPercent = settings.stampDuty[selectedProperty.category] || 0;
-        const stampDuty = grandTotal * (stampDutyPercent / 100);
-        const registrationFee = grandTotal * (settings.registrationFeePercent / 100);
-        return grandTotal + brokerage + stampDuty + registrationFee;
+        const registrationFeePercent = settings.registrationFeePercent || 0;
+        const stampDuty = base * (stampDutyPercent / 100);
+        const registrationFee = base * (registrationFeePercent / 100);
+        return base + stampDuty + registrationFee;
     };
-    
-    const finalPrice = calculateFinalPrice();
+
+    const totalCost = calculateTotalCost();
 
     const handleConfirmAdd = async () => {
         const percent = parseFloat(brokeragePercent);
+        const rentP = parseFloat(rentPercent);
         if (!selectedProperty || !percent || percent <= 0) {
             alert('Please select a property and enter a valid brokerage percentage.');
             return;
@@ -85,8 +92,12 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
             alert('Brokerage cannot exceed 15%.');
             return;
         }
+        if (!rentP || rentP < 1 || rentP > 100) {
+            alert('Please enter a valid rent percent (1-100).');
+            return;
+        }
 
-        const finalTotal = calculateFinalPrice();
+    const totalCost = calculateTotalCost();
 
         try {
             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries`, {
@@ -100,8 +111,9 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                     table: activeTable,
                     team: activeTeamId,
                     brokeragePercent: percent,
-                    finalTotal: finalTotal,
-                    annualRent: selectedProperty.annualRent,
+                    totalCost: totalCost,
+                    rentPercent: rentP,
+                    annualRent: Math.round(totalCost * (rentP / 100)),
                     hazardTypes: selectedProperty.hazardTypes || [],
                     name: selectedProperty.name,
                     category: selectedProperty.category,
@@ -128,7 +140,7 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                 <div className="p-6 md:p-8">
                     <div className="mb-6 relative">
                         <label htmlFor="property-search" className="block mb-1 font-medium text-sm">Search Property</label>
-                        <input type="text" id="property-search" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Type property name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoComplete="off" />
+                        <input type="text" id="property-search" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Type property name or number..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoComplete="off" />
                                                 {searchResults.length > 0 && (
                                                     <div className="search-results absolute z-10 w-full bg-white border mt-1 rounded-lg max-h-60 overflow-y-auto">
                                                         {searchResults.map(p => (
@@ -156,17 +168,33 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                                     {selectedProperty.hazardTypes && selectedProperty.hazardTypes.length > 0 && (
                                         <p className="md:col-span-2"><strong>Hazard Risks:</strong> <span className="font-medium text-red-600">{selectedProperty.hazardTypes.join(', ')}</span></p>
                                     )}
+                                    {selectedProperty.owners && selectedProperty.owners.length > 0 && (
+                                        <div className="md:col-span-2">
+                                            <strong>Team Costs:</strong>
+                                            <ul>
+                                                {selectedProperty.owners.map((owner, idx) => (
+                                                    <li key={idx}>
+                                                        Team: {owner.team?.name || owner.team?.toString?.() || owner.team}, Table: {owner.table}, Total Cost: {formatCurrency(owner.totalCost)}, Annual Rent: {formatCurrency(owner.annualRent)}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="mt-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                     <div>
                                         <label htmlFor="brokerage-percent" className="block text-sm font-medium mb-1">Brokerage (%)</label>
                                         <input type="number" id="brokerage-percent" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="e.g., 2.5" value={brokeragePercent} onChange={(e) => setBrokeragePercent(e.target.value)} />
                                     </div>
+                                    <div>
+                                        <label htmlFor="rent-percent" className="block text-sm font-medium mb-1">Rent Percent (%)</label>
+                                        <input type="number" id="rent-percent" className="w-full p-3 border border-gray-300 rounded-lg" placeholder="e.g., 10" value={rentPercent} onChange={(e) => setRentPercent(e.target.value)} min={1} max={100} />
+                                    </div>
                                     <div className="bg-blue-50 p-4 rounded-lg">
-                                        <label className="block text-sm font-medium">Final Price (incl. fees)</label>
-                                        <p className="text-2xl font-bold text-blue-700">{settings ? formatCurrency(finalPrice) : 'Calculating...'}</p>
+                                        <label className="block text-sm font-medium">Total Cost (incl. fees)</label>
+                                        <p className="text-2xl font-bold text-blue-700">{settings ? formatCurrency(totalCost) : 'Calculating...'}</p>
                                     </div>
                                 </div>
                             </div>

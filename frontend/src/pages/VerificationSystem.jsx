@@ -43,6 +43,12 @@ const VerificationRow = ({ property, selectedPropertyNo, onVerify, onSelect }) =
 
 // --- Main Page Component ---
 function VerificationSystem() {
+
+    // Helper to get per-team owner object for selected property
+    const getTeamOwner = (property, teamId) => {
+        if (!property?.owners || !Array.isArray(property.owners)) return null;
+        return property.owners.find(o => o.team === teamId);
+    };
     // --- Team Wallet Management State ---
 
     const { user, token } = useAuth();
@@ -193,27 +199,6 @@ function VerificationSystem() {
         }
     };
     
-    const handleRoundEnd = async () => {
-        if (!user?.tableAccess || !token) return;
-        if (!window.confirm(`Are you sure you want to end the round for ${user.tableAccess.replace('table', 'Table ')}? This will add rental income to all teams.`)) return;
-        try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/end-round`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) {
-                 const data = await res.json();
-                 throw new Error(data.message || "Server failed to process round end.");
-            }
-            // Increase bank value by 2% after each round
-            
-            alert("Round ended successfully! Wallets have been updated with rental income.");
-            fetchTeams();
-        } catch (err) {
-            console.error(err);
-            alert(`Error: ${err.message}`);
-        }
-    };
 
     // --- Team Wallet Add/Deduct Logic is handled in TeamWalletRow below ---
 // --- TeamWalletRow Component ---
@@ -248,6 +233,11 @@ const TeamWalletRow = ({ team }) => {
         }
     };
 
+    // Helper to get per-team owner object for selected property
+    const getTeamOwner = (property, teamId) => {
+        if (!property?.owners || !Array.isArray(property.owners)) return null;
+        return property.owners.find(o => o.team === teamId);
+    };
     return (
         <tr>
             <td className="p-2">{team.name}</td>
@@ -359,7 +349,7 @@ const TeamWalletRow = ({ team }) => {
 
     const uniqueStatuses = useMemo(() => ['All', ...new Set(properties.map(p => p.status))], [properties]);
     const uniqueCategories = useMemo(() => ['All', ...new Set(properties.map(p => p.category))], [properties]);
-    const filteredData = useMemo(() => properties.filter(p => p.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) && (filters.status === 'All' || p.status === filters.status) && (filters.category === 'All' || p.category === filters.category)), [properties, filters]);
+    const filteredData = useMemo(() => properties.filter(p => (p.name.toLowerCase().includes(filters.searchTerm.toLowerCase())||p.propertyNo?.toString().includes(filters.searchTerm)) && (filters.status === 'All' || p.status === filters.status) && (filters.category === 'All' || p.category === filters.category)), [properties, filters]);
     const handleVerify = (propertyNo, inputValue) => {
         const property = properties.find(p => p.propertyNo === propertyNo);
         const userValue = parseFloat(String(inputValue).replace(/[^0-9.]/g, ''));
@@ -383,7 +373,6 @@ const TeamWalletRow = ({ team }) => {
             <div className="bg-white p-6 rounded-lg shadow-md mb-12">
                 <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                     <h2 className="text-2xl font-bold text-gray-800">Manage Teams for {user?.tableAccess?.replace('table', 'Table ')}</h2>
-                    <button onClick={handleRoundEnd} className="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">End Round</button>
                 </div>
                 <form onSubmit={handleAddTeam} className="flex flex-col sm:flex-row gap-2 mb-4">
                     <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="New Team Name" className="flex-grow p-2 border rounded-md" required />
@@ -418,10 +407,31 @@ const TeamWalletRow = ({ team }) => {
                 <aside className="lg:col-span-3 mb-8 lg:mb-0"><div className="sticky top-24">
                     <div className="bg-white p-4 rounded-lg shadow-md mb-8"><h2 className="text-lg font-bold mb-4">Verification Settings</h2><div className="space-y-3"><div><label htmlFor="stampDutyRes" className="block text-sm font-medium text-gray-700">Residential Duty (%)</label><input type="number" id="stampDutyRes" className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" value={stampDuties.Residential} onChange={e => handleStampDutyChange('Residential', e.target.value)} /></div><div><label htmlFor="stampDutyCom" className="block text-sm font-medium text-gray-700">Commercial Duty (%)</label><input type="number" id="stampDutyCom" className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" value={stampDuties.Commercial} onChange={e => handleStampDutyChange('Commercial', e.target.value)} /></div><div><label htmlFor="stampDutyInd" className="block text-sm font-medium text-gray-700">Industrial Duty (%)</label><input type="number" id="stampDutyInd" className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" value={stampDuties.Industrial} onChange={e => handleStampDutyChange('Industrial', e.target.value)} /></div><p className="text-xs text-gray-500 pt-2">Registration fee is fixed at 1%.</p></div></div>
                     <div className="bg-white p-4 rounded-lg shadow-md"><h2 className="text-lg font-bold mb-4">Filters</h2><div className="space-y-4"><div><label htmlFor="search" className="block text-sm font-medium text-gray-700">Search by Name</label><input type="text" id="search" className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2" onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))} /></div><div><label className="block text-sm font-medium text-gray-700">Status</label><div className="flex flex-wrap gap-2 mt-1">{uniqueStatuses.map(s => <button key={s} onClick={() => setFilters(f => ({ ...f, status: s }))} className={`px-3 py-1 text-sm rounded-full ${filters.status === s ? 'bg-gray-600 text-white' : 'bg-gray-200'}`}>{s}</button>)}</div></div><div><label className="block text-sm font-medium text-gray-700">Category</label><div className="flex flex-wrap gap-2 mt-1">{uniqueCategories.map(c => <button key={c} onClick={() => setFilters(f => ({ ...f, category: c }))} className={`px-3 py-1 text-sm rounded-full ${filters.category === c ? 'bg-gray-600 text-white' : 'bg-gray-200'}`}>{c}</button>)}</div></div></div></div>
-                    <div className="mt-8 bg-white p-4 rounded-lg shadow-md"><h2 className="text-lg font-bold mb-4">Recent Team Activity</h2><ul className="space-y-3 text-sm max-h-96 overflow-y-auto">{teamActivities.length > 0 ? teamActivities.map(act => ( <li key={act._id} className="border-b border-gray-200 pb-2"><p className="font-semibold text-gray-800">{act.name}</p><div className="flex justify-between items-center text-gray-600"><span>Sold to <strong className="text-blue-600">{act.team ? act.team.name : 'N/A'}</strong></span><span className="font-bold text-green-600">{formatCurrency(act.finalTotal)}</span></div></li> )) : <li className="text-gray-500">No team activity yet.</li>}</ul></div>
+                    <div className="mt-8 bg-white p-4 rounded-lg shadow-md"><h2 className="text-lg font-bold mb-4">Recent Team Activity</h2><ul className="space-y-3 text-sm max-h-96 overflow-y-auto">{teamActivities.length > 0 ? teamActivities.map(act => ( <li key={act._id} className="border-b border-gray-200 pb-2"><p className="font-semibold text-gray-800">{act.name}</p><div className="flex justify-between items-center text-gray-600"><span>Sold to <strong className="text-blue-600">{act.team ? act.team.name : 'N/A'}</strong></span><span className="font-bold text-green-600">{formatCurrency(act.totalCost)}</span></div></li> )) : <li className="text-gray-500">No team activity yet.</li>}</ul></div>
                 </div></aside>
                 <section className="lg:col-span-9"><div className="bg-white p-6 rounded-lg shadow-md"><div className="flex justify-between items-center mb-4"><h2 className="text-2xl font-bold">Property Ledger</h2><div className="text-right"><span className="text-sm text-gray-500">Total Displayed Value</span><p className="font-bold text-xl text-green-600">{formatCurrency(totalValue)}</p></div></div>{Object.keys(groupedProperties).length === 0 ? <p className="text-center py-10 text-gray-500">No properties match filters.</p> : Object.keys(groupedProperties).sort().map(category => ( <div key={category} className="mb-8"><h3 className="text-xl font-semibold mb-3 text-gray-800 border-b-2 border-gray-200 pb-2">{category}</h3><div className="overflow-x-auto"><table className="main-table w-full text-sm text-left text-gray-500"><thead className="text-xs text-gray-700 uppercase"><tr><th scope="col" className="px-6 py-3">Property Name</th><th scope="col" className="px-6 py-3">Status</th><th scope="col" className="px-6 py-3 w-2/5">Verification</th></tr></thead><tbody>{groupedProperties[category].map(p => <VerificationRow key={p.propertyNo} property={p} selectedPropertyNo={selectedPropertyNo} onVerify={handleVerify} onSelect={setSelectedPropertyNo} />)}</tbody></table></div></div> ))}</div>
                     {selectedProperty && (() => {
+                        // Get per-team owner object for selected property
+                        const teamOwner = getTeamOwner(selectedProperty, user?.teamId);
+                        // Sell property handler
+                        const handleSellProperty = async () => {
+                            if (!teamOwner || !teamOwner.totalCost) return alert('No property found for your team.');
+                            if (!window.confirm(`Are you sure you want to sell this property? This will deduct ${formatCurrency(teamOwner.totalCost)} from your team wallet.`)) return;
+                            try {
+                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/update-wallet`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                    body: JSON.stringify({ teamId: user.teamId, amount: teamOwner.totalCost, isPercent: false, isDeduct: true })
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.message || 'Failed to update wallet');
+                                alert('Property sold! Wallet updated.');
+                                fetchTeams();
+                            } catch (err) {
+                                alert('Error: ' + err.message);
+                            }
+                        };
+                        // Fallback to property values if owner not found
                         const stampDutyPercent = stampDuties[selectedProperty.category] || 0;
                         const grandTotal = selectedProperty.grandTotal;
                         const brokeragePercent = selectedProperty.brokeragePercent || 0;
@@ -429,9 +439,10 @@ const TeamWalletRow = ({ team }) => {
                         const baseWithBrokerage = grandTotal + brokerage;
                         const stampDuty = baseWithBrokerage * (stampDutyPercent / 100);
                         const registrationFee = baseWithBrokerage * 0.01;
-                        const totalCost = grandTotal + brokerage + stampDuty + registrationFee;
-                        const monthlyRent = selectedProperty.monthlyRent;
-                        const annualRent = selectedProperty.annualRent;
+                        // Use per-team totalCost/annualRent if available
+                        const totalCost = teamOwner?.totalCost ?? (grandTotal + brokerage + stampDuty + registrationFee);
+                        const monthlyRent = teamOwner?.monthlyRent ?? selectedProperty.monthlyRent;
+                        const annualRent = teamOwner?.annualRent ?? selectedProperty.annualRent;
                         const rentalYield = (annualRent / totalCost);
                         return (
                             <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
@@ -467,6 +478,14 @@ const TeamWalletRow = ({ team }) => {
                                                     <DetailItem label="Registration Fee (1%)" value={formatCurrency(registrationFee)} />
                                                     <div className="border-t my-2"></div>
                                                     <DetailItem label="<strong>Total Cost</strong>" value={`<strong class=\"text-blue-700\">${formatCurrency(totalCost)}</strong>`} />
+                                                    {/* Sell button for team-owned property, always visible if owned */}
+                                                    {teamOwner && teamOwner.totalCost && (
+                                                        <div className="mt-4">
+                                                            <button onClick={handleSellProperty} className="bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700">
+                                                                Sell Property (Deduct {formatCurrency(teamOwner.totalCost)} from wallet)
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <h5 className="font-semibold mb-2 text-gray-700">Rental Income</h5>
@@ -521,7 +540,7 @@ const TeamWalletRow = ({ team }) => {
                         <select id="property-to-trade" value={selectedPropertyForTrade} onChange={(e) => setSelectedPropertyForTrade(e.target.value)} className="w-full p-2 border rounded-md" disabled={!fromTeam} required>
                             <option value="">{fromTeam ? 'Select a property' : 'Select a seller team first'}</option>
                             {fromTeamProperties.map(prop => (
-                                <option key={prop._id} value={prop._id}>{prop.name} - {formatCurrency(prop.finalTotal)}</option>
+                                <option key={prop._id} value={prop._id}>{prop.name} - {formatCurrency(prop.totalCost)}</option>
                             ))}
                         </select>
                     </div>
@@ -583,6 +602,67 @@ const TeamWalletRow = ({ team }) => {
                                                             </tbody>
                                 </table>
                         </div>
+            {/* --- Sell Properties Block --- */}
+            <div className="bg-yellow-50 p-6 rounded-lg shadow-md mb-12">
+                <h2 className="text-2xl font-bold text-yellow-800 mb-4">Sell Properties (All Teams)</h2>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-700">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-2">Team Name</th>
+                                <th className="p-2">Property Name</th>
+                                <th className="p-2">Total Cost</th>
+                                <th className="p-2">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {teams.map(team => (
+                                properties.filter(p => Array.isArray(p.owners) && p.owners.some(o => o.team === team._id && o.totalCost)).map(property => {
+                                    const ownerObj = property.owners.find(o => o.team === team._id);
+                                    return (
+                                        <tr key={team._id + '-' + property.propertyNo} className="border-b">
+                                            <td className="p-2 font-semibold">{team.name}</td>
+                                            <td className="p-2">{property.name} (#{property.propertyNo})</td>
+                                            <td className="p-2">{formatCurrency(ownerObj.totalCost)}</td>
+                                            <td className="p-2">
+                                                <button
+                                                    className="bg-red-600 text-white font-bold py-1 px-3 rounded-md hover:bg-red-700"
+                                                    onClick={async () => {
+                                                        if (!window.confirm(`Sell ${property.name} for ${team.name}? This will add ${formatCurrency(ownerObj.totalCost)} to wallet.`)) return;
+                                                        try {
+                                                            // Only delete the corresponding entry for this team and property
+                                                            // Find the entry by teamId, propertyId, and table
+                                                            const entryRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${team._id}?table=${ownerObj.table}`, {
+                                                                headers: { 'Authorization': `Bearer ${token}` }
+                                                            });
+                                                            const entryList = await entryRes.json();
+                                                            if (Array.isArray(entryList)) {
+                                                                const entryToDelete = entryList.find(e => e.propertyId === property._id);
+                                                                if (entryToDelete) {
+                                                                    const delRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${entryToDelete._id}`, {
+                                                                        method: 'DELETE',
+                                                                        headers: { 'Authorization': `Bearer ${token}` }
+                                                                    });
+                                                                    const delData = await delRes.json();
+                                                                    if (!delRes.ok) throw new Error(delData.message || 'Failed to delete entry');
+                                                                }
+                                                            }
+                                                            alert('Property sold! Wallet updated and entry deleted.');
+                                                            fetchTeams();
+                                                        } catch (err) {
+                                                            alert('Error: ' + err.message);
+                                                        }
+                                                    }}
+                                                >Sell</button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </main>
     );
 }

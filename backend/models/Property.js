@@ -23,7 +23,9 @@ const propertySchema = new mongoose.Schema({
 	hazardTypes: [{ type: String }],
 	owners: [{
 		team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-		table: { type: String, required: true }
+		table: { type: String, required: true },
+		annualRent: { type: Number, required: true },
+		totalCost: { type: Number, required: true }
 	}]
 });
 

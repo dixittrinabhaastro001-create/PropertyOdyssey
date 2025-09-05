@@ -11,20 +11,22 @@ export const createEntry = async (req, res) => {
     try {
         const team = await Team.findById(teamId);
         if (!team) return res.status(404).json({ message: 'Team not found.' });
-        // Calculate finalTotal using new logic
-        const stampDutyRates = { Residential: 5, Commercial: 6, Industrial: 6 };
-        const stampDutyPercent = stampDutyRates[category] || 0;
-        const brokerage = grandTotal * ((parseFloat(brokeragePercent) || 0) / 100);
-        const baseWithBrokerage = grandTotal + brokerage;
-        const stampDuty = baseWithBrokerage * (stampDutyPercent / 100);
-        const registrationFee = baseWithBrokerage * 0.01;
-        const finalTotal = grandTotal + brokerage + stampDuty + registrationFee;
-        if (team.walletBalance < finalTotal) return res.status(400).json({ message: `Insufficient funds. Wallet has: ${formatCurrency(team.walletBalance)}` });
+    // Calculate totalCost using new logic
+    const stampDutyRates = { residential: 6, commercial: 7, industrial:8 , prospectus:7, agriculture:7 };
+    const stampDutyPercent = stampDutyRates[category] || 0;
+    const brokerage = grandTotal * ((parseFloat(brokeragePercent) || 0) / 100);
+    const baseWithBrokerage = grandTotal + brokerage;
+    const stampDuty = baseWithBrokerage * (stampDutyPercent / 100);
+    const registrationFee = baseWithBrokerage * 0.01;
+    const totalCost = grandTotal + brokerage + stampDuty + registrationFee;
+    if (team.walletBalance < totalCost) return res.status(400).json({ message: `Insufficient funds. Wallet has: ${formatCurrency(team.walletBalance)}` });
 
-        // Save entry with calculated finalTotal
-        const entryData = { ...req.body, finalTotal };
-        const newEntry = new Entry(entryData);
-        await newEntry.save();
+    // Save entry with calculated totalCost
+    const rentPercent = req.body.rentPercent;
+    const annualRent = Math.round(totalCost * (rentPercent / 100));
+    const entryData = { ...req.body, totalCost, rentPercent, annualRent };
+    const newEntry = new Entry(entryData);
+    await newEntry.save();
         // Add property to team's buyedProperties and team to property's owners using propertyId and table
         const propertyId = newEntry.propertyId;
         const table = newEntry.table;
@@ -43,13 +45,15 @@ export const createEntry = async (req, res) => {
         }
         await Team.findByIdAndUpdate(teamId, {
             $inc: {
-                expenditure: finalTotal,
-                walletBalance: -finalTotal
+                expenditure: totalCost,
+                walletBalance: -totalCost
             },
             $addToSet: { buyedProperties: propertyId }
         });
+        // Add owner with annualRent to property.owners array
         await Property.findByIdAndUpdate(propertyId, {
-            $addToSet: { owners: { team: teamId, table } }
+            $addToSet: { owners: { team: teamId, table, annualRent,totalCost } },
+            $set: { rentPercent } // annualRent is now per-owner
         });
         res.status(201).json(newEntry);
     } catch (err) {
@@ -65,7 +69,7 @@ export const updateEntry = async (req, res) => {
         const originalEntry = await Entry.findById(req.params.id);
         if (!originalEntry) return res.status(404).json({ message: 'Entry not found' });
 
-        const priceDifference = req.body.finalTotal - originalEntry.finalTotal;
+    const priceDifference = req.body.totalCost - originalEntry.totalCost;
         const teamId = originalEntry.team;
 
         const team = await Team.findById(teamId);
@@ -73,13 +77,23 @@ export const updateEntry = async (req, res) => {
             return res.status(400).json({ message: `Insufficient funds for update. Wallet has: ${formatCurrency(team.walletBalance)}`});
         }
 
-        const updatedEntry = await Entry.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const rentPercent = req.body.rentPercent;
+    const annualRent = Math.round(req.body.totalCost * (rentPercent / 100));
+    const updatedEntry = await Entry.findByIdAndUpdate(req.params.id, { ...req.body, rentPercent, annualRent }, { new: true });
         await Team.findByIdAndUpdate(teamId, {
             $inc: {
                 expenditure: priceDifference,
                 walletBalance: -priceDifference
             }
         });
+        // Also update property.owners array for this team/table with new annualRent
+        if (updatedEntry.propertyId) {
+            const Property = (await import('../models/Property.js')).default;
+            await Property.updateOne(
+                { _id: updatedEntry.propertyId, "owners.team": teamId, "owners.table": originalEntry.table },
+                { $set: { "owners.$.annualRent": annualRent,"owners.$.totalCost": req.body.totalCost } }
+            );
+        }
         res.json(updatedEntry);
     } catch (err) {
         res.status(400).json({ message: 'Error updating entry.' });
@@ -97,7 +111,7 @@ export const deleteEntry = async (req, res) => {
         const teamId = entry.team;
         const propertyId = entry.propertyId;
         const table = entry.table;
-        const deletedAmount = entry.finalTotal;
+    const deletedAmount = entry.totalCost;
         await Entry.findByIdAndDelete(req.params.id);
         await Team.findByIdAndUpdate(teamId, {
             $inc: {

@@ -69,7 +69,7 @@ function BrokerTable({ activeTable, activeTeamId, onEdit, onDataRefresh }) {
     if (error) return <div className="text-center text-red-600 py-10"><p className="font-semibold">Error loading data: {error}</p></div>;
     if (entries.length === 0) return <div className="text-center text-gray-500 py-10">No entries for this team yet.</div>;
 
-    const total = entries.reduce((acc, e) => acc + (e.finalTotal || 0), 0);
+    const total = entries.reduce((acc, e) => acc + (e.totalCost || 0), 0);
 
     return (
         <div className="overflow-x-auto">
@@ -91,7 +91,7 @@ function BrokerTable({ activeTable, activeTeamId, onEdit, onDataRefresh }) {
                             <td className="px-4 py-3 font-medium">{item.name}</td>
                             <td className="px-4 py-3 text-right">{formatCurrency(item.grandTotal)}</td>
                             <td className="px-4 py-3 text-right text-green-600 font-medium">{item.brokeragePercent}%</td>
-                            <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.finalTotal)}</td>
+                            <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.totalCost)}</td>
                             <td className="px-4 py-3 text-center">
                                 <>
                                     <button onClick={() => onEdit(item)} className="text-blue-600 hover:text-blue-800 font-medium mr-3">Edit</button>

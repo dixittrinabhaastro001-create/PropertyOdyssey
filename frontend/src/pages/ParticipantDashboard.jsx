@@ -95,8 +95,24 @@ function ParticipantDashboard() {
                                     <tr key={entry._id}>
                                         <td className="px-4 py-3 font-medium">{entry.name}</td>
                                         <td className="px-4 py-3">{entry.category}</td>
-                                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(entry.finalTotal)}</td>
-                                        <td className="px-4 py-3 text-right text-green-700 font-semibold">{formatCurrency(entry.annualRent)}</td>
+                                        <td className="px-4 py-3 text-right font-semibold">{
+                                            (() => {
+                                                if (entry.owners && entry.owners.length > 0 && user && user.teamId) {
+                                                    const owner = entry.owners.find(o => o.team === user.teamId || o.team?._id === user.teamId);
+                                                    return owner ? formatCurrency(owner.totalCost) : formatCurrency(entry.totalCost);
+                                                }
+                                                return formatCurrency(entry.totalCost);
+                                            })()
+                                        }</td>
+                                        <td className="px-4 py-3 text-right text-green-700 font-semibold">{
+                                            (() => {
+                                                if (entry.owners && entry.owners.length > 0 && user && user.teamId) {
+                                                    const owner = entry.owners.find(o => o.team === user.teamId || o.team?._id === user.teamId);
+                                                    return owner ? formatCurrency(owner.annualRent) : formatCurrency(entry.annualRent);
+                                                }
+                                                return formatCurrency(entry.annualRent);
+                                            })()
+                                        }</td>
                                     </tr>
                                 )) : (
                                     <tr>

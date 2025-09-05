@@ -73,9 +73,32 @@ function AdminPage() {
     setStatus(s => ({ ...s, [idx]: 'Restored!' }));
   };
 
+  // Admin End All Rounds Button
+  const [endStatus, setEndStatus] = useState('');
+  const handleEndAllRounds = async () => {
+  if (!window.confirm('Are you sure you want to end the round for ALL tables? This will increase all property grandTotals, annualRents, and totalCosts by 10% and add annual rents to all team wallets.')) return;
+    setEndStatus('Processing...');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/end-all-rounds`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Server error');
+      }
+  setEndStatus('All rounds ended! All property grandTotals, annualRents, and totalCosts increased by 10%. Team wallets updated.');
+    } catch (err) {
+      setEndStatus(`Error: ${err.message}`);
+    }
+  };
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-6">Admin Controls</h1>
+      <button className="bg-green-700 text-white px-6 py-3 rounded mb-8" onClick={handleEndAllRounds}>
+        End Round For All Tables
+      </button>
+      <span className="ml-4 text-lg text-blue-700">{endStatus}</span>
       <input
         type="text"
         placeholder="Search events..."

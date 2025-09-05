@@ -44,7 +44,7 @@ function TeamLedgerTable({ activeTable, activeTeamId, activeTeamName }) {
   if (loading) return <div className="text-center py-10">Loading Ledger...</div>;
   if (entries.length === 0) return <div className="text-center text-gray-500 py-10">No entries for this team in this table.</div>;
 
-  const total = entries.reduce((acc, e) => acc + (e.finalTotal || 0), 0);
+  const total = entries.reduce((acc, e) => acc + (e.totalCost || 0), 0);
 
   return (
     <div className="overflow-x-auto">
@@ -66,7 +66,7 @@ function TeamLedgerTable({ activeTable, activeTeamId, activeTeamName }) {
               <td className="px-4 py-3 font-medium">{item.name}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(item.grandTotal)}</td>
               <td className="px-4 py-3 text-right text-green-600 font-medium">{item.brokeragePercent}%</td>
-              <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.finalTotal)}</td>
+              <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.totalCost)}</td>
             </tr>
           ))}
         </tbody>

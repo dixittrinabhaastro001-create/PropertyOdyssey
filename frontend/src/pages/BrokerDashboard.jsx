@@ -5,7 +5,7 @@ import BrokerTable from '../components/BrokerTable';
 import AddEntryModal from '../components/AddEntryModal';
 import EditEntryModal from '../components/EditEntryModal';
 
-const tableTabsData = ["TABLE 1", "TABLE 2", "TABLE 3", "TABLE 4", "TABLE 5", "TABLE 6"];
+const tableTabsData = Array.from({ length: 50 }, (_, i) => `TABLE ${i + 1}`);
 
 function BrokerDashboard() {
     // 1. Get the 'token' from the useAuth hook
