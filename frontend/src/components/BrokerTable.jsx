@@ -69,7 +69,12 @@ function BrokerTable({ activeTable, activeTeamId, onEdit, onDataRefresh }) {
     if (error) return <div className="text-center text-red-600 py-10"><p className="font-semibold">Error loading data: {error}</p></div>;
     if (entries.length === 0) return <div className="text-center text-gray-500 py-10">No entries for this team yet.</div>;
 
-    const total = entries.reduce((acc, e) => acc + (e.totalCost || 0), 0);
+    // Filter to only show unique properties for this team in this table
+    const uniqueEntries = entries.filter((entry, idx, arr) =>
+        arr.findIndex(e => e.propertyId === entry.propertyId) === idx
+    );
+
+    const total = uniqueEntries.reduce((acc, e) => acc + (e.totalCost || 0), 0);
 
     return (
         <div className="overflow-x-auto">
@@ -85,7 +90,7 @@ function BrokerTable({ activeTable, activeTeamId, onEdit, onDataRefresh }) {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                    {entries.map((item, i) => (
+                    {uniqueEntries.map((item, i) => (
                         <tr key={item._id} className="border-b hover:bg-gray-50">
                             <td className="px-4 py-3 text-center">{i + 1}</td>
                             <td className="px-4 py-3 font-medium">{item.name}</td>

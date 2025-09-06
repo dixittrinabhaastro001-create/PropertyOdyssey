@@ -12,7 +12,7 @@ export const createEntry = async (req, res) => {
         const team = await Team.findById(teamId);
         if (!team) return res.status(404).json({ message: 'Team not found.' });
     // Calculate totalCost using new logic
-    const stampDutyRates = { residential: 6, commercial: 7, industrial:8 , prospectus:7, agriculture:7 };
+    const stampDutyRates = { residential: 6, commercial: 7, industrial:8 , prospectus:7, agriculture:7, industry:8 };
     const stampDutyPercent = stampDutyRates[category] || 0;
     const brokerage = grandTotal * ((parseFloat(brokeragePercent) || 0) / 100);
     const baseWithBrokerage = grandTotal + brokerage;

@@ -61,6 +61,11 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
     }, [searchTerm, propertyData]);
 
     const handleSelectProperty = (property) => {
+        // Prevent selecting a property already owned in this table
+        if (property.owners && property.owners.some(o => o.table === activeTable)) {
+            alert('This property is already owned by a team in this table.');
+            return;
+        }
         setSelectedProperty(property);
         setSearchTerm(property.name);
         setSearchResults([]);
@@ -81,19 +86,33 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
 
     const totalCost = calculateTotalCost();
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const handleConfirmAdd = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         const percent = parseFloat(brokeragePercent);
         const rentP = parseFloat(rentPercent);
         if (!selectedProperty || !percent || percent <= 0) {
             alert('Please select a property and enter a valid brokerage percentage.');
+            setIsSubmitting(false);
             return;
         }
         if (percent > 15) {
             alert('Brokerage cannot exceed 15%.');
+            setIsSubmitting(false);
             return;
         }
-        if (!rentP || rentP < 1 || rentP > 100) {
-            alert('Please enter a valid rent percent (1-100).');
+        // Rent percent range validation by category
+        const category = selectedProperty.category?.toLowerCase();
+        let minRent = 1, maxRent = 100;
+        if (category === 'residential') { minRent = 4; maxRent = 6; }
+        else if (category === 'commercial') { minRent = 8; maxRent = 10; }
+        else if (category === 'industry') { minRent = 12; maxRent = 14; }
+        else if (category === 'agriculture') { minRent = 16; maxRent = 18; }
+        if (!rentP || rentP < minRent || rentP > maxRent) {
+            alert(`Please enter a valid rent percent (${minRent}-${maxRent}%) for ${selectedProperty.category}.`);
+            setIsSubmitting(false);
             return;
         }
 
@@ -130,6 +149,8 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
         } catch (error) {
             console.error("Failed to add entry:", error);
             alert(`Error: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -201,7 +222,20 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                         </>
                     )}
                 </div>
-                <div className="p-6 bg-gray-50 border-t text-right space-x-3"><button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-lg">Cancel</button><button onClick={handleConfirmAdd} disabled={!selectedProperty || !brokeragePercent || parseFloat(brokeragePercent) <= 0} className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:bg-blue-300 disabled:cursor-not-allowed">Add to Team</button></div>
+                <div className="p-6 bg-gray-50 border-t text-right space-x-3">
+                    <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-lg">Cancel</button>
+                    <button
+                        onClick={handleConfirmAdd}
+                        disabled={isSubmitting || !selectedProperty || !brokeragePercent || parseFloat(brokeragePercent) <= 0}
+                        className={`bg-blue-600 text-white px-4 py-2 rounded-lg disabled:bg-blue-300 disabled:cursor-not-allowed ${isSubmitting ? 'opacity-60' : ''}`}
+                    >
+                        {isSubmitting ? 'Adding...' : 'Add to Team'}
+                    </button>
+                </div>
+                <div className="px-6 pb-4 pt-2 text-xs text-gray-600 text-left">
+                    <strong>Allowed Rent Percent Ranges:</strong><br />
+                    Residential: 4-6% &nbsp; | &nbsp; Commercial: 8-10% &nbsp; | &nbsp; Industrial: 12-14% &nbsp; | &nbsp; Agriculture: 16-18%
+                </div>
             </div>
         </div>
     );
