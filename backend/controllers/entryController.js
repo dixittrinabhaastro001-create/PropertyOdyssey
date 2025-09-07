@@ -50,10 +50,9 @@ export const createEntry = async (req, res) => {
             },
             $addToSet: { buyedProperties: propertyId }
         });
-        // Add owner with annualRent to property.owners array
+        // Add owner with annualRent and rentPercent to property.owners array
         await Property.findByIdAndUpdate(propertyId, {
-            $addToSet: { owners: { team: teamId, table, annualRent,totalCost } },
-            $set: { rentPercent } // annualRent is now per-owner
+            $addToSet: { owners: { team: teamId, table, annualRent, totalCost, rentPercent } }
         });
         res.status(201).json(newEntry);
     } catch (err) {
@@ -86,12 +85,12 @@ export const updateEntry = async (req, res) => {
                 walletBalance: -priceDifference
             }
         });
-        // Also update property.owners array for this team/table with new annualRent
+        // Also update property.owners array for this team/table with new annualRent, totalCost, and rentPercent
         if (updatedEntry.propertyId) {
             const Property = (await import('../models/Property.js')).default;
             await Property.updateOne(
                 { _id: updatedEntry.propertyId, "owners.team": teamId, "owners.table": originalEntry.table },
-                { $set: { "owners.$.annualRent": annualRent,"owners.$.totalCost": req.body.totalCost } }
+                { $set: { "owners.$.annualRent": annualRent, "owners.$.totalCost": req.body.totalCost, "owners.$.rentPercent": rentPercent } }
             );
         }
         res.json(updatedEntry);

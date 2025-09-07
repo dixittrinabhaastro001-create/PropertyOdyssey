@@ -8,11 +8,7 @@ function LandingPage() {
             <div className="overlay h-full w-full flex flex-col">
                 <header className="w-full p-4">
                     <div className="container mx-auto flex justify-between items-center">
-                        <img 
-                            src="https://media.licdn.com/dms/image/v2/C510BAQFU8FqBF4LF1g/company-logo_200_200/company-logo_200_200/0/1630577321434/bnbvit_logo?e=1756339200&v=beta&t=P5EurNUMdtZfKi6un5ogn3lsAG_fEhsAQ2akb_90Tg4" 
-                            alt="Bulls and Bears Club Logo" 
-                            className="h-12"
-                        />
+                        <span>Bulls and Bears</span>
                         <div className="flex items-center gap-4">
                             <Link to="/participant-login" className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-green-700 transition duration-300">
                                 Team Login

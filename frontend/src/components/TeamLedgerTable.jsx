@@ -56,6 +56,7 @@ function TeamLedgerTable({ activeTable, activeTeamId, activeTeamName }) {
             <th className="px-4 py-2">Name</th>
             <th className="px-4 py-2 text-right">Amount</th>
             <th className="px-4 py-2 text-right">Broker %</th>
+            <th className="px-4 py-2 text-right">Rent %</th>
             <th className="px-4 py-2 text-right">Final Amount</th>
           </tr>
         </thead>
@@ -66,13 +67,14 @@ function TeamLedgerTable({ activeTable, activeTeamId, activeTeamName }) {
               <td className="px-4 py-3 font-medium">{item.name}</td>
               <td className="px-4 py-3 text-right">{formatCurrency(item.grandTotal)}</td>
               <td className="px-4 py-3 text-right text-green-600 font-medium">{item.brokeragePercent}%</td>
+              <td className="px-4 py-3 text-right text-blue-600 font-medium">{item.rentPercent ?? '-' }%</td>
               <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.totalCost)}</td>
             </tr>
           ))}
         </tbody>
         <tfoot>
           <tr className="font-bold bg-gray-100">
-            <td colSpan="4" className="text-right px-4 py-3">Total</td>
+            <td colSpan="5" className="text-right px-4 py-3">Total</td>
             <td className="text-right px-4 py-3 text-blue-700 text-base">{formatCurrency(total)}</td>
           </tr>
         </tfoot>

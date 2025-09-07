@@ -123,12 +123,31 @@ export const endAllRounds = async (req, res) => {
         const Property = (await import('../models/Property.js')).default;
         const Team = (await import('../models/Team.js')).default;
 
-        // 1. Increase grandTotal of all properties by 10%
+        // 1. For each team, sum up annualRent from all properties they own (from owners array), multiply by 5, add to wallet
+        const teams = await Team.find({});
+        for (const team of teams) {
+            // Find all properties where this team is an owner
+            const properties = await Property.find({ 'owners.team': team._id });
+            let totalAnnualRent = 0;
+            for (const property of properties) {
+                // Find the owner's object for this team
+                const ownerObj = property.owners.find(o => o.team.toString() === team._id.toString());
+                if (ownerObj && typeof ownerObj.annualRent === 'number') {
+                    totalAnnualRent += ownerObj.annualRent;
+                }
+            }
+            if (totalAnnualRent > 0) {
+                // Add 5x total annual rent to wallet
+                await Team.findByIdAndUpdate(team._id, { $inc: { walletBalance: totalAnnualRent * 5 } });
+            }
+        }
+
+        // 2. Increase grandTotal of all properties by 10%
         await Property.updateMany({}, [
             { $set: { grandTotal: { $multiply: ["$grandTotal", 1.1] } } }
         ]);
 
-        // 2. For each property, increase annualRent and totalCost for each owner by 10%
+        // 3. For each property, increase annualRent and totalCost for each owner by 10%
         const allProperties = await Property.find({});
         for (const property of allProperties) {
             let updatedOwners = property.owners.map(owner => {
@@ -145,24 +164,8 @@ export const endAllRounds = async (req, res) => {
             await property.save();
         }
 
-        // 3. For each team, sum up updated annualRent from all properties they own (from owners array)
-        const teams = await Team.find({});
-        for (const team of teams) {
-            // Find all properties where this team is an owner
-            const properties = await Property.find({ 'owners.team': team._id });
-            let totalAnnualRent = 0;
-            for (const property of properties) {
-                // Find the owner's object for this team
-                const ownerObj = property.owners.find(o => o.team.toString() === team._id.toString());
-                if (ownerObj && typeof ownerObj.annualRent === 'number') {
-                    totalAnnualRent += ownerObj.annualRent;
-                }
-            }
-            if (totalAnnualRent > 0) {
-                await Team.findByIdAndUpdate(team._id, { $inc: { walletBalance: totalAnnualRent } });
-            }
-        }
-        res.status(200).json({ message: 'All rounds ended. All property grandTotals, annualRents, and totalCosts increased by 10%. All teams received their annual rents.' });
+    // 4. Do NOT increase team wallet by 10%. Only increase annualRent, totalCost, and grandTotal by 10%.
+    res.status(200).json({ message: 'All rounds ended. All teams received 5x annual rents, then all property grandTotals, annualRents, and totalCosts increased by 10%.' });
     } catch (err) {
         console.error("End All Rounds Error:", err);
         res.status(500).json({ message: "Error processing end of all rounds." });

@@ -26,18 +26,35 @@ export const tradeProperty = async (req, res) => {
         // Add trade amount to seller
         await Team.findByIdAndUpdate(fromTeamId, { $inc: { walletBalance: tradeAmount } });
         // Transfer property entry ownership
-        const entry = await Entry.findByIdAndUpdate(entryId, { team: toTeamId }, { new: true });
-        // Get propertyId from entry
-        const propertyId = entry.mapId || entry.propertyId || entry._id;
+        const entry = await Entry.findById(entryId);
+        if (!entry) return res.status(404).json({ message: 'Entry not found.' });
+        // Get propertyId and table from entry
+        const propertyId = entry.propertyId;
+        const table = entry.table;
+        // Update entry to new team
+        entry.team = toTeamId;
+        await entry.save();
         // Update buyedProperties for both teams
         await Team.findByIdAndUpdate(fromTeamId, { $pull: { buyedProperties: propertyId } });
         await Team.findByIdAndUpdate(toTeamId, { $addToSet: { buyedProperties: propertyId } });
-        // Update owners array in Property model
+        // Update owners array in Property model: remove seller, add buyer with correct annualRent/totalCost
         const Property = (await import('../models/Property.js')).default;
-        await Property.findByIdAndUpdate(propertyId, {
-            $pull: { owners: fromTeamId },
-            $addToSet: { owners: toTeamId }
+        const property = await Property.findById(propertyId);
+        if (!property) return res.status(404).json({ message: 'Property not found.' });
+        // Find the seller's owner object for this table
+        const sellerOwner = property.owners.find(o => o.team.toString() === fromTeamId && o.table === table);
+        if (!sellerOwner) return res.status(404).json({ message: 'Seller owner record not found.' });
+        // Remove seller's owner object
+        property.owners = property.owners.filter(o => !(o.team.toString() === fromTeamId && o.table === table));
+        // Add buyer's owner object (copying annualRent, totalCost, and rentPercent from seller)
+        property.owners.push({
+            team: toTeamId,
+            table,
+            annualRent: sellerOwner.annualRent,
+            totalCost: sellerOwner.totalCost,
+            rentPercent: sellerOwner.rentPercent
         });
+        await property.save();
         return res.status(200).json({ message: `Trade successful! Seller cut: ${formatCurrency(sellerDeduct)}, Buyer cut: ${formatCurrency(buyerDeduct)}, Trade amount: ${formatCurrency(tradeAmount)}.` });
     } catch (err) {
         console.error('Trade error:', err);

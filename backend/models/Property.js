@@ -25,7 +25,8 @@ const propertySchema = new mongoose.Schema({
 		team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
 		table: { type: String, required: true },
 		annualRent: { type: Number, required: true },
-		totalCost: { type: Number, required: true }
+		totalCost: { type: Number, required: true },
+		rentPercent: { type: Number } // Unique rent percent for each property-team pair
 	}]
 });
 

@@ -42,6 +42,9 @@ const VerificationRow = ({ property, selectedPropertyNo, onVerify, onSelect }) =
 };
 
 // --- Main Page Component ---
+
+
+
 function VerificationSystem() {
 
     // Helper to get per-team owner object for selected property
@@ -52,6 +55,7 @@ function VerificationSystem() {
     // --- Team Wallet Management State ---
 
     const { user, token } = useAuth();
+
     const [properties, setProperties] = useState([]);
     useEffect(() => {
         async function fetchProperties() {
@@ -129,7 +133,6 @@ function VerificationSystem() {
             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${fromTeam}?table=${user.tableAccess}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (!res.ok) throw new Error('Could not fetch team properties.');
             const data = await res.json();
             setFromTeamProperties(data);
         } catch (err) {
@@ -215,7 +218,6 @@ const TeamWalletRow = ({ team }) => {
         let isPercent = isAdd ? addIsPercent : deductIsPercent;
         if (!value || isNaN(value)) return;
         let amount = parseFloat(value);
-        // Always send positive amount, but for deduct, backend will subtract
         setStatus('Processing...');
         try {
             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/update-wallet`, {
@@ -233,11 +235,6 @@ const TeamWalletRow = ({ team }) => {
         }
     };
 
-    // Helper to get per-team owner object for selected property
-    const getTeamOwner = (property, teamId) => {
-        if (!property?.owners || !Array.isArray(property.owners)) return null;
-        return property.owners.find(o => o.team === teamId);
-    };
     return (
         <tr>
             <td className="p-2">{team.name}</td>
@@ -602,65 +599,74 @@ const TeamWalletRow = ({ team }) => {
                                                             </tbody>
                                 </table>
                         </div>
-            {/* --- Sell Properties Block --- */}
+            {/* --- Sell Properties Block (Team-wise) --- */}
             <div className="bg-yellow-50 p-6 rounded-lg shadow-md mb-12">
-                <h2 className="text-2xl font-bold text-yellow-800 mb-4">Sell Properties (All Teams)</h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-700">
-                        <thead className="bg-gray-100">
-                            <tr>
-                                <th className="p-2">Team Name</th>
-                                <th className="p-2">Property Name</th>
-                                <th className="p-2">Total Cost</th>
-                                <th className="p-2">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {teams.map(team => (
-                                properties.filter(p => Array.isArray(p.owners) && p.owners.some(o => o.team === team._id && o.totalCost)).map(property => {
-                                    const ownerObj = property.owners.find(o => o.team === team._id);
-                                    return (
-                                        <tr key={team._id + '-' + property.propertyNo} className="border-b">
-                                            <td className="p-2 font-semibold">{team.name}</td>
-                                            <td className="p-2">{property.name} (#{property.propertyNo})</td>
-                                            <td className="p-2">{formatCurrency(ownerObj.totalCost)}</td>
-                                            <td className="p-2">
-                                                <button
-                                                    className="bg-red-600 text-white font-bold py-1 px-3 rounded-md hover:bg-red-700"
-                                                    onClick={async () => {
-                                                        if (!window.confirm(`Sell ${property.name} for ${team.name}? This will add ${formatCurrency(ownerObj.totalCost)} to wallet.`)) return;
-                                                        try {
-                                                            // Only delete the corresponding entry for this team and property
-                                                            // Find the entry by teamId, propertyId, and table
-                                                            const entryRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${team._id}?table=${ownerObj.table}`, {
-                                                                headers: { 'Authorization': `Bearer ${token}` }
-                                                            });
-                                                            const entryList = await entryRes.json();
-                                                            if (Array.isArray(entryList)) {
-                                                                const entryToDelete = entryList.find(e => e.propertyId === property._id);
-                                                                if (entryToDelete) {
-                                                                    const delRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${entryToDelete._id}`, {
-                                                                        method: 'DELETE',
-                                                                        headers: { 'Authorization': `Bearer ${token}` }
-                                                                    });
-                                                                    const delData = await delRes.json();
-                                                                    if (!delRes.ok) throw new Error(delData.message || 'Failed to delete entry');
-                                                                }
-                                                            }
-                                                            alert('Property sold! Wallet updated and entry deleted.');
-                                                            fetchTeams();
-                                                        } catch (err) {
-                                                            alert('Error: ' + err.message);
-                                                        }
-                                                    }}
-                                                >Sell</button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ))}
-                        </tbody>
-                    </table>
+                <h2 className="text-2xl font-bold text-yellow-800 mb-4">Sell Properties (Team-wise)</h2>
+                <div className="space-y-8">
+                    {teams.map(team => {
+                        const teamProperties = properties.filter(p => Array.isArray(p.owners) && p.owners.some(o => o.team === team._id && o.totalCost));
+                        if (teamProperties.length === 0) return null;
+                        return (
+                            <div key={team._id} className="mb-6 rounded-lg border border-yellow-200 bg-yellow-100">
+                                <div className="px-4 py-2 bg-yellow-200 rounded-t-lg">
+                                    <h3 className="text-lg font-bold text-yellow-900">{team.name}</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left text-gray-700">
+                                        <thead className="bg-yellow-50">
+                                            <tr>
+                                                <th className="p-2">Property Name</th>
+                                                <th className="p-2">Total Cost</th>
+                                                <th className="p-2">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {teamProperties.map(property => {
+                                                const ownerObj = property.owners.find(o => o.team === team._id);
+                                                return (
+                                                    <tr key={team._id + '-' + property.propertyNo} className="border-b">
+                                                        <td className="p-2">{property.name} (#{property.propertyNo})</td>
+                                                        <td className="p-2">{formatCurrency(ownerObj.totalCost)}</td>
+                                                        <td className="p-2">
+                                                            <button
+                                                                className="bg-red-600 text-white font-bold py-1 px-3 rounded-md hover:bg-red-700"
+                                                                onClick={async () => {
+                                                                    if (!window.confirm(`Sell ${property.name} for ${team.name}? This will add ${formatCurrency(ownerObj.totalCost)} to wallet.`)) return;
+                                                                    try {
+                                                                        // Only delete the corresponding entry for this team and property
+                                                                        // Find the entry by teamId, propertyId, and table
+                                                                        const entryRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${team._id}?table=${ownerObj.table}`, {
+                                                                            headers: { 'Authorization': `Bearer ${token}` }
+                                                                        });
+                                                                        const entryList = await entryRes.json();
+                                                                        if (Array.isArray(entryList)) {
+                                                                            const entryToDelete = entryList.find(e => e.propertyId === property._id);
+                                                                            if (entryToDelete) {
+                                                                                const delRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/entries/${entryToDelete._id}`, {
+                                                                                    method: 'DELETE',
+                                                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                                                });
+                                                                                const delData = await delRes.json();
+                                                                                if (!delRes.ok) throw new Error(delData.message || 'Failed to delete entry');
+                                                                            }
+                                                                        }
+                                                                        alert('Property sold! Wallet updated and entry deleted.');
+                                                                        fetchTeams();
+                                                                    } catch (err) {
+                                                                        alert('Error: ' + err.message);
+                                                                    }
+                                                                }}
+                                                            >Sell</button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </main>

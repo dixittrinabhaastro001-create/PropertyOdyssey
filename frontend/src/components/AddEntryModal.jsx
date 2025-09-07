@@ -181,9 +181,8 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                             <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
                                 <h3 className="font-semibold text-lg border-b pb-2">Property Details</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                    <p><strong>Serial No:</strong> {selectedProperty.id}</p>
-                                    <p><strong>Name:</strong> {selectedProperty.name}</p>
-                                    <p><strong>Map No:</strong> {selectedProperty.mapId}</p>
+                                    <p><strong>Map No:</strong> {selectedProperty.propertyNo}</p>
+                                    <p><strong>Name:</strong> {selectedProperty.name}</p>                
                                     <p><strong>Category:</strong> {selectedProperty.category}</p>
                                     <p className="md:col-span-2"><strong>Grand Total:</strong> {formatCurrency(selectedProperty.grandTotal)}</p>
                                     {selectedProperty.hazardTypes && selectedProperty.hazardTypes.length > 0 && (
@@ -191,14 +190,23 @@ function AddEntryModal({ onClose, onAddSuccess, activeTable, activeTeamId }) {
                                     )}
                                     {selectedProperty.owners && selectedProperty.owners.length > 0 && (
                                         <div className="md:col-span-2">
-                                            <strong>Team Costs:</strong>
-                                            <ul>
-                                                {selectedProperty.owners.map((owner, idx) => (
-                                                    <li key={idx}>
-                                                        Team: {owner.team?.name || owner.team?.toString?.() || owner.team}, Table: {owner.table}, Total Cost: {formatCurrency(owner.totalCost)}, Annual Rent: {formatCurrency(owner.annualRent)}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <strong>Team-wise Costs:</strong>
+                                            {Object.entries(selectedProperty.owners.reduce((acc, owner) => {
+                                                if (!acc[owner.table]) acc[owner.table] = [];
+                                                acc[owner.table].push(owner);
+                                                return acc;
+                                            }, {})).map(([table, owners]) => (
+                                                <div key={table} className="mb-2">
+                                                    <span className="font-semibold text-blue-700">Table: {table}</span>
+                                                    <ul className="ml-4 list-disc">
+                                                        {owners.map((owner, idx) => (
+                                                            <li key={idx}>
+                                                                Team: {owner.team?.name || owner.team?.toString?.() || owner.team}, Total Cost: {formatCurrency(owner.totalCost)}, Annual Rent: {formatCurrency(owner.annualRent)}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>

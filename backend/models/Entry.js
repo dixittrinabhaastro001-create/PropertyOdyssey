@@ -13,7 +13,8 @@ const entrySchema = new mongoose.Schema({
     grandTotal: Number,
     brokeragePercent: Number,
     totalCost: Number,
-    hazardTypes: [{ type: String }]
+    hazardTypes: [{ type: String }],
+    rentPercent: { type: Number }
 }, { timestamps: true });
 
 export default mongoose.model('Entry', entrySchema);
